@@ -2,9 +2,9 @@
 
 The sticky Poisson HMM is for segmenting neural activity into discrete latent states while discouraging unrealistically fast state switching. The key idea is simple: each hidden state has a vector of expected event counts across neurons, units, or channels, and the transition matrix is constrained to keep self-transition probabilities high.
 
-Use it when your observations are counts in time bins.
+Use the Poisson and Multinoulli models when your observations are counts or symbols in time bins.
 
-Do not use raw continuous signals as Poisson observations. For fiber photometry, convert transients to detected events first, then feed event counts into the sticky-Poisson HMM. If the continuous amplitude itself is the scientific object, use a Gaussian-emission HMM instead.
+Do not use raw continuous signals as Poisson observations. For fiber photometry, either convert transients to detected events and use sticky-Poisson HMM, or model the raw continuous trace with sticky Gaussian HMM.
 
 ## Install
 
@@ -54,6 +54,72 @@ Outputs:
 - `result.gamma`: transition probability matrix
 
 State labels are zero-based in Python. Add 1 if you want MATLAB-style labels.
+
+## 1b. The Four MATLAB-Style HMM Families
+
+The Python package exposes direct public entry points for the four MATLAB demo families.
+
+Standard Poisson HMM:
+
+```python
+from hmm_spikes import fit_poisson_hmm
+
+standard = fit_poisson_hmm(
+    trial_counts,
+    n_states=3,
+    bin_size=0.05,
+    max_iter=1000,
+)
+```
+
+Sticky Poisson HMM:
+
+```python
+from hmm_spikes import fit_sticky_poisson_hmm
+
+sticky = fit_sticky_poisson_hmm(
+    trial_counts,
+    n_states=3,
+    bin_size=0.05,
+    threshold=0.8,
+    max_iter=1000,
+)
+```
+
+Poisson HMM with Dirichlet transition prior:
+
+```python
+from hmm_spikes import fit_dirichlet_poisson_hmm
+
+dirichlet = fit_dirichlet_poisson_hmm(
+    trial_counts,
+    n_states=3,
+    bin_size=0.05,
+    mode_self_transition=0.9,
+    offdiag_alpha=1.1,
+    max_iter=1000,
+)
+```
+
+Multinoulli HMM:
+
+```python
+from hmm_spikes import counts_to_multinoulli_symbols, fit_multinoulli_hmm
+
+symbols = [
+    counts_to_multinoulli_symbols(counts, random_state=0)
+    for counts in trial_counts
+]
+
+multi = fit_multinoulli_hmm(
+    symbols,
+    n_states=3,
+    n_symbols=trial_counts[0].shape[0] + 1,
+    max_iter=1000,
+)
+```
+
+Multinoulli warning: use short bins. The model assumes one categorical symbol per time bin: one selected unit fired, or no unit fired. If many neurons fire in the same bin, the symbol representation is throwing information away.
 
 ## 2. Multiple Spike Trains
 
@@ -222,6 +288,62 @@ Interpretation:
 - `result.rates_hz` is an event rate, not a fluorescence amplitude
 
 This is a modeling compromise. It is useful when transients are the event-like objects of interest. It is not a replacement for modeling raw fluorescence dynamics.
+
+## 6b. Sticky Gaussian HMM For Raw Photometry Or Continuous Signals
+
+If you want to model the raw continuous signal itself, use the sticky Gaussian HMM. This uses a diagonal Gaussian emission model, so each state has a mean and variance for each signal.
+
+Single continuous signal:
+
+```python
+from hmm_spikes import fit_sticky_gaussian_hmm, gaussian_viterbi_decode
+
+result = fit_sticky_gaussian_hmm(
+    [photometry_signal],
+    n_states=3,
+    threshold=0.8,
+    max_iter=1000,
+    random_state=3456,
+)
+
+states = gaussian_viterbi_decode(
+    photometry_signal,
+    result.means,
+    result.variances,
+    result.gamma,
+)
+```
+
+Array of continuous signals:
+
+```python
+from hmm_spikes import fit_sticky_gaussian_hmm, gaussian_state_probabilities
+
+signals = photometry_signals  # shape: n_signals x n_time_bins
+
+result = fit_sticky_gaussian_hmm(
+    [signals],
+    n_states=3,
+    threshold=0.8,
+    max_iter=1000,
+)
+
+posterior = gaussian_state_probabilities(
+    signals,
+    result.means,
+    result.variances,
+    result.gamma,
+)
+```
+
+Interpretation:
+
+- `result.means`: state-dependent signal amplitude means
+- `result.variances`: state-dependent signal variances
+- `result.gamma`: transition matrix
+- `result.threshold_satisfied`: whether the final sticky constraint holds
+
+Use sticky Gaussian HMM for raw continuous photometry. Use sticky Poisson HMM only after event detection and binning.
 
 ## 7. Choosing The Number Of States
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sticky-poisson-hmm"
 version = "0.1.0"
-description = "Sticky Poisson Hidden Markov Models for neural spike-count state discovery."
+description = "Poisson, sticky Poisson, Multinoulli, and sticky Gaussian HMMs for neural state discovery."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [

@@ -377,6 +377,177 @@ def fit_sticky_poisson_hmm(
     )
 
 
+def fit_poisson_hmm(
+    counts: list[np.ndarray],
+    n_states: int,
+    *,
+    bin_size: float,
+    max_iter: int = 1000,
+    tol: float = 1e-4,
+    loglik_tol: float = 1e-6,
+    floor_mean: float = 1e-3,
+    init_means: np.ndarray | None = None,
+    init_gamma: np.ndarray | None = None,
+    random_state: int | np.random.Generator | None = None,
+    verbose: bool = False,
+) -> PHMMResult:
+    """Fit the standard Poisson HMM.
+
+    This is the Python counterpart of the MATLAB standard PHMM demo.
+    """
+
+    return fit_sticky_poisson_hmm(
+        counts,
+        n_states,
+        bin_size=bin_size,
+        threshold=0.0,
+        max_iter=max_iter,
+        tol=tol,
+        loglik_tol=loglik_tol,
+        floor_mean=floor_mean,
+        init_means=init_means,
+        init_gamma=init_gamma,
+        random_state=random_state,
+        sticky=False,
+        verbose=verbose,
+    )
+
+
+def _dirichlet_alpha(n_states: int, mode_self_transition: float, offdiag_alpha: float) -> np.ndarray:
+    if not 0.0 < mode_self_transition < 1.0:
+        raise ValueError("mode_self_transition must be between 0 and 1")
+    if offdiag_alpha <= 1.0:
+        raise ValueError("offdiag_alpha must be greater than 1")
+
+    alpha = offdiag_alpha * np.ones((n_states, n_states), dtype=float)
+    diag_alpha = 1.0 + mode_self_transition * (n_states - 1) * (offdiag_alpha - 1.0) / (1.0 - mode_self_transition)
+    np.fill_diagonal(alpha, diag_alpha)
+    return alpha
+
+
+def fit_dirichlet_poisson_hmm(
+    counts: list[np.ndarray],
+    n_states: int,
+    *,
+    bin_size: float,
+    mode_self_transition: float = 0.9,
+    offdiag_alpha: float = 1.1,
+    max_iter: int = 1000,
+    tol: float = 1e-4,
+    loglik_tol: float = 1e-6,
+    floor_mean: float = 1e-3,
+    init_means: np.ndarray | None = None,
+    init_gamma: np.ndarray | None = None,
+    random_state: int | np.random.Generator | None = None,
+    verbose: bool = False,
+) -> PHMMResult:
+    """Fit a Poisson HMM with a Dirichlet prior over transition rows.
+
+    The prior nudges self-transition probabilities upward but does not impose
+    the hard sticky threshold used by ``fit_sticky_poisson_hmm``.
+    """
+
+    if not counts:
+        raise ValueError("counts must contain at least one trial")
+    counts = [np.asarray(x, dtype=float) for x in counts]
+    n_neurons = counts[0].shape[0]
+    if any(x.shape[0] != n_neurons for x in counts):
+        raise ValueError("all count matrices must have the same neuron count")
+
+    rng = _as_rng(random_state)
+    alpha = _dirichlet_alpha(n_states, mode_self_transition, offdiag_alpha)
+    means = (
+        np.asarray(init_means, dtype=float).copy()
+        if init_means is not None
+        else _initialize_means(counts, n_states, floor_mean, rng)
+    )
+    means = np.maximum(means, floor_mean)
+    gamma = (
+        np.asarray(init_gamma, dtype=float).copy()
+        if init_gamma is not None
+        else _initialize_transition(n_states, min(mode_self_transition, 0.95), rng)
+    )
+    gamma = _normalize_rows(gamma, np.full_like(gamma, 1.0 / n_states))
+
+    n_trials = len(counts)
+    deltas = np.full((n_trials, n_states), 1.0 / n_states, dtype=float)
+    logliks: list[float] = []
+    crits: list[float] = []
+    gamma_diag: list[np.ndarray] = [np.diag(gamma).copy()]
+    old_loglik = 1.0
+    converged = False
+    final_loglik = float("-inf")
+    final_iter = 0
+
+    prior_num = alpha - 1.0
+    prior_den = prior_num.sum(axis=1, keepdims=True)
+
+    for iteration in range(1, max_iter + 1):
+        old_means = means.copy()
+        old_gamma = gamma.copy()
+        loglik = 0.0
+        gamma_num = np.zeros((n_states, n_states), dtype=float)
+        means_num = np.zeros((n_neurons, n_states), dtype=float)
+        means_den = np.zeros(n_states, dtype=float)
+
+        for trial, x in enumerate(counts):
+            log_em = log_poisson_emissions(x, old_means, floor_mean)
+            _, _, q, xi_sum, trial_ll = forward_backward_scaled(log_em, old_gamma, deltas[trial])
+            loglik += trial_ll
+            gamma_num += xi_sum
+            means_num += x @ q.T
+            means_den += q.sum(axis=1)
+            deltas[trial] = q[:, 0] / np.maximum(q[:, 0].sum(), np.finfo(float).tiny)
+
+        gamma_next = (gamma_num + prior_num) / np.maximum(gamma_num.sum(axis=1, keepdims=True) + prior_den, np.finfo(float).tiny)
+        gamma_next = _normalize_rows(gamma_next, old_gamma)
+        means_next = means_num / np.maximum(means_den[None, :], np.finfo(float).tiny)
+        unused = means_den <= np.finfo(float).tiny
+        if np.any(unused):
+            means_next[:, unused] = old_means[:, unused]
+        means_next = np.maximum(means_next, floor_mean)
+
+        crit = float(np.linalg.norm(old_means - means_next) + np.linalg.norm(old_gamma - gamma_next))
+        means = means_next
+        gamma = gamma_next
+        logliks.append(float(loglik))
+        crits.append(crit)
+        gamma_diag.append(np.diag(gamma).copy())
+        final_loglik = float(loglik)
+        final_iter = iteration
+
+        if verbose and (iteration == 1 or iteration % 25 == 0):
+            print(
+                f"iter={iteration:04d} loglik={loglik:.3f} "
+                f"crit={crit:.3g} min_diag={np.diag(gamma).min():.3f}"
+            )
+
+        if abs(loglik - old_loglik) < loglik_tol and crit < tol:
+            converged = True
+            break
+        old_loglik = loglik
+
+    history = PHMMHistory(
+        log_likelihood=np.asarray(logliks, dtype=float),
+        gamma_diag=np.asarray(gamma_diag, dtype=float).T,
+        crit=np.asarray(crits, dtype=float),
+        reset_hits=np.empty((0, 2), dtype=int),
+    )
+    return PHMMResult(
+        means=means,
+        gamma=gamma,
+        deltas=deltas,
+        bin_size=bin_size,
+        converged=converged,
+        n_iter=final_iter,
+        log_likelihood=final_loglik,
+        history=history,
+        threshold=0.0,
+        threshold_satisfied=True,
+        restored_on_exit=False,
+    )
+
+
 def state_probabilities(
     x: np.ndarray,
     means: np.ndarray,

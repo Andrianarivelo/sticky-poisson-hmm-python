@@ -1,15 +1,23 @@
 # Sticky Poisson HMM Python
 
-Python utilities for discovering latent states in neural population activity with a sticky Poisson Hidden Markov Model.
+Python utilities for discovering latent states in neural population activity with Hidden Markov Models.
 
-This package is designed for count-like observations:
+The package includes Python counterparts of the original MATLAB demo families:
+
+- standard Poisson HMM
+- sticky Poisson HMM
+- Poisson HMM with Dirichlet prior over transition rows
+- Multinoulli HMM
+- sticky Gaussian HMM for continuous signals
+
+The Poisson and Multinoulli models are designed for count-like observations:
 
 - binned spike-count arrays
 - arrays of spike trains
 - a single spike-time array
 - fiber photometry signals after converting transients to event counts
 
-Brutally honest modeling rule: sticky-Poisson HMM is a Poisson count model. It is principled for spike counts and detected event counts. If you want to model raw continuous amplitudes, use a sticky Gaussian HMM instead.
+Brutally honest modeling rule: sticky-Poisson HMM is a Poisson count model. It is principled for spike counts and detected event counts. Do not feed raw continuous fiber photometry fluorescence directly into the Poisson model unless you first convert it to event counts. If you want to model raw continuous amplitudes, use `fit_sticky_gaussian_hmm` instead.
 
 ## Install
 
@@ -22,7 +30,7 @@ python -m pip install -e .
 Then any script in the same Python environment can import:
 
 ```python
-from hmm_spikes import fit_sticky_poisson_hmm
+from hmm_spikes import fit_sticky_poisson_hmm, fit_sticky_gaussian_hmm
 ```
 
 ## Minimal Use With A Count Array
@@ -46,6 +54,20 @@ posterior = state_probabilities(counts, result.means, result.gamma)
 posterior_states = posterior.argmax(axis=0)
 viterbi_states = viterbi_decode(counts, result.means, result.gamma)
 ```
+
+## Algorithm Map
+
+```python
+from hmm_spikes import (
+    fit_poisson_hmm,
+    fit_sticky_poisson_hmm,
+    fit_dirichlet_poisson_hmm,
+    fit_multinoulli_hmm,
+    fit_sticky_gaussian_hmm,
+)
+```
+
+Use `fit_poisson_hmm` for the standard PHMM, `fit_sticky_poisson_hmm` for the recommended sticky count model, `fit_dirichlet_poisson_hmm` when you want a soft transition prior rather than a hard sticky reset, `fit_multinoulli_hmm` for categorical symbols, and `fit_sticky_gaussian_hmm` for continuous traces such as raw photometry.
 
 ## Citation
 
