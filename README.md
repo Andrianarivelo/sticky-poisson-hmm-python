@@ -73,6 +73,19 @@ Use `fit_poisson_hmm` for the standard PHMM, `fit_sticky_poisson_hmm` for the re
 
 The implementation does not depend on an external HMM backend. The forward-backward and EM updates are implemented in this package. Transition expectations are accumulated without constructing a large `n_states x n_states x n_time_bins` tensor, which is important for long recordings.
 
+For unstable model-selection sweeps, use the crash-isolated scanner:
+
+```powershell
+python scripts\run_bic_scan.py `
+  --dataset data\python\exampledata_dt50ms.npz `
+  --output-dir figures\bic_scan `
+  --states 2..6 `
+  --restarts 20 `
+  --max-iter 1000
+```
+
+Each restart runs in a fresh Python subprocess. A native crash is recorded as `crashed` and the scan continues. Fits that satisfy the sticky threshold but do not hit strict EM convergence are labeled `diagnostic`.
+
 ## Citation
 
 This package is based on the sticky Poisson HMM methodology from:

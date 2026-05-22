@@ -402,6 +402,86 @@ best_m, best_bic, best_model = min(results, key=lambda x: x[1])
 print("Best state number:", best_m)
 ```
 
+For long or unstable recordings, prefer the crash-isolated scanner:
+
+```python
+from hmm_spikes import run_sticky_poisson_bic_scan_isolated
+
+scan = run_sticky_poisson_bic_scan_isolated(
+    trial_counts,
+    candidate_states=range(2, 7),
+    bin_size=0.05,
+    n_restarts=20,
+    threshold=0.8,
+    max_iter=1000,
+    output_dir="bic_scan_outputs",
+)
+
+print(scan.best_strict)
+print(scan.best_diagnostic)
+```
+
+The scanner classifies each restart:
+
+- `strict`: converged and sticky threshold satisfied
+- `diagnostic`: sticky threshold satisfied but strict EM convergence was not reached
+- `invalid`: returned a model that did not satisfy the sticky threshold
+- `timeout`: exceeded the per-restart timeout
+- `crashed`: subprocess exited abnormally
+
+For a case like NAc where the sticky threshold is satisfied but the strict convergence flag is false at 100 iterations, call it a diagnostic fit and increase `max_iter` before interpreting it as final.
+
+Command-line version:
+
+```powershell
+python scripts\run_bic_scan.py `
+  --dataset path\to\data.npz `
+  --output-dir bic_scan_outputs `
+  --states 2..6 `
+  --restarts 20 `
+  --max-iter 1000
+```
+
+If only K=4 is stable and biologically interpretable, report K=4 as the prespecified stable model and label the broader K scan as unstable. Do not pretend an unstable K sweep provides strong model-selection evidence.
+
+## 7b. Condition Metrics And Paired Tests
+
+The package includes helpers for the table-level quantities:
+
+```python
+from hmm_spikes import (
+    state_sequence_metrics,
+    paired_condition_table,
+)
+
+metrics = state_sequence_metrics(viterbi_states, bin_size=0.05)
+print(metrics["switches_per_min"])
+print(metrics["mean_state_duration_s"])
+print(metrics["state_entropy_bits"])
+```
+
+For paired condition comparisons:
+
+```python
+condition_a = {
+    "switches_per_min": switches_control,
+    "mean_state_duration_s": duration_control,
+    "state_entropy_bits": entropy_control,
+}
+
+condition_b = {
+    "switches_per_min": switches_treatment,
+    "mean_state_duration_s": duration_treatment,
+    "state_entropy_bits": entropy_treatment,
+}
+
+rows = paired_condition_table(condition_a, condition_b)
+for row in rows:
+    print(row)
+```
+
+With `n=3` mice, exact sign-flip p values are coarse. No FDR-surviving effect should be described as a reliable condition effect. Treat it as descriptive and hypothesis-generating.
+
 ## 8. Citation
 
 This package implements the sticky Poisson HMM workflow introduced by:
