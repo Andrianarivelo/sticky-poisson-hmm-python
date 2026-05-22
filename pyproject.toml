@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sticky-poisson-hmm"
+version = "0.1.0"
+description = "Sticky Poisson Hidden Markov Models for neural spike-count state discovery."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Andrianarivelo" }
+]
+dependencies = [
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "matplotlib>=3.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/Andrianarivelo/sticky-poisson-hmm-python"
+Reference = "https://doi.org/10.1371/journal.pone.0325979"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hmm_spikes*"]

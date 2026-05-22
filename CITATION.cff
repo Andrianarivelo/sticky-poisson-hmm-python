@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: Sticky Poisson HMM Python utilities
+message: "If you use this Python package, cite the original sticky Poisson HMM paper."
+authors:
+  - family-names: Andrianarivelo
+repository-code: "https://github.com/Andrianarivelo/sticky-poisson-hmm-python"
+references:
+  - type: article
+    authors:
+      - family-names: Li
+        given-names: Tianshu
+      - family-names: La Camera
+        given-names: Giancarlo
+    title: "A sticky Poisson Hidden Markov Model for solving the problem of over-segmentation and rapid state switching in cortical datasets"
+    journal: "PLOS One"
+    year: 2025
+    volume: 20
+    issue: 7
+    doi: "10.1371/journal.pone.0325979"
+    url: "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0325979"
