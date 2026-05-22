@@ -173,9 +173,15 @@ def forward_backward_scaled(
         xi_sum = np.zeros((n_states, n_states), dtype=float)
     else:
         future = emissions[:, 1:] * beta[:, 1:]
-        xi = alpha[:, None, :-1] * gamma[:, :, None] * future[None, :, :]
-        xi = xi / np.maximum(xi.sum(axis=(0, 1), keepdims=True), tiny)
-        xi_sum = xi.sum(axis=2)
+        # Sum xi_t without materializing a states x states x time tensor.
+        # For each time t:
+        #   xi_ij(t) is proportional to alpha_i(t) * gamma_ij * future_j(t).
+        # Therefore:
+        #   sum_t xi_ij(t) = gamma_ij * sum_t alpha_i(t) * future_j(t) / z_t
+        # where z_t normalizes each transition-probability matrix.
+        trans_future = gamma @ future
+        denom = np.maximum(np.sum(alpha[:, :-1] * trans_future, axis=0), tiny)
+        xi_sum = gamma * ((alpha[:, :-1] / denom[None, :]) @ future.T)
 
     log_likelihood = float(emission_offsets.sum() + np.log(scales).sum())
     return alpha, beta, q, xi_sum, log_likelihood

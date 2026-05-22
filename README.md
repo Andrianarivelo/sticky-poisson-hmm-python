@@ -69,6 +69,10 @@ from hmm_spikes import (
 
 Use `fit_poisson_hmm` for the standard PHMM, `fit_sticky_poisson_hmm` for the recommended sticky count model, `fit_dirichlet_poisson_hmm` when you want a soft transition prior rather than a hard sticky reset, `fit_multinoulli_hmm` for categorical symbols, and `fit_sticky_gaussian_hmm` for continuous traces such as raw photometry.
 
+## Reliability Note
+
+The implementation does not depend on an external HMM backend. The forward-backward and EM updates are implemented in this package. Transition expectations are accumulated without constructing a large `n_states x n_states x n_time_bins` tensor, which is important for long recordings.
+
 ## Citation
 
 This package is based on the sticky Poisson HMM methodology from:
