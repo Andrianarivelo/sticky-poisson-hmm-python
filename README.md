@@ -53,7 +53,7 @@ This package is based on the sticky Poisson HMM methodology from:
 
 Li T, La Camera G (2025) A sticky Poisson Hidden Markov Model for solving the problem of over-segmentation and rapid state switching in cortical datasets. PLOS One 20(7): e0325979. https://doi.org/10.1371/journal.pone.0325979
 
-The PLOS article page lists the paper as published July 1, 2025 and gives the same citation and DOI.
+
 
 ## Tutorial
 
