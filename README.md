@@ -9,7 +9,7 @@ This package is designed for count-like observations:
 - a single spike-time array
 - fiber photometry signals after converting transients to event counts
 
-Brutally honest modeling rule: sticky-Poisson HMM is a Poisson count model. It is principled for spike counts and detected event counts. Do not feed raw continuous fiber photometry fluorescence directly into this model unless you first convert it to event counts. If you want to model raw continuous amplitudes, use a sticky Gaussian HMM instead.
+Brutally honest modeling rule: sticky-Poisson HMM is a Poisson count model. It is principled for spike counts and detected event counts. If you want to model raw continuous amplitudes, use a sticky Gaussian HMM instead.
 
 ## Install
 
