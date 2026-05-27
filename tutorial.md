@@ -55,7 +55,7 @@ Outputs:
 
 State labels are zero-based in Python. Add 1 if you want MATLAB-style labels.
 
-## 1b. The Four MATLAB-Style HMM Families
+## 1b. The MATLAB-Style HMM Families
 
 The Python package exposes direct public entry points for the four MATLAB demo families.
 
@@ -120,6 +120,86 @@ multi = fit_multinoulli_hmm(
 ```
 
 Multinoulli warning: use short bins. The model assumes one categorical symbol per time bin: one selected unit fired, or no unit fired. If many neurons fire in the same bin, the symbol representation is throwing information away.
+
+## 1c. Graph-Informed HMM Family
+
+The graph-informed HMM family is added on top of the MATLAB-style models. It uses a weighted graph over observed units, continuous features, or categorical symbols. After the ordinary M-step, it smooths the emission parameters with the graph Laplacian.
+
+The same idea is available for three emission models:
+
+- Poisson: smooths state count-rate vectors
+- Gaussian: smooths state mean vectors, with optional variance smoothing
+- Multinoulli: smooths categorical emission probabilities over a symbol graph
+
+Use it when you have a real graph:
+
+- physical probe geometry
+- anatomical connectivity
+- known channel neighborhood
+- categorical symbol similarity
+- functional connectivity estimated from a separate baseline period
+
+```python
+from hmm_spikes import (
+    counts_to_multinoulli_symbols,
+    fit_graph_multinoulli_hmm,
+    fit_sticky_graph_gaussian_hmm,
+    fit_sticky_graph_poisson_hmm,
+    infer_functional_connectivity_graph,
+    infer_observation_graph,
+    infer_symbol_transition_graph,
+)
+
+graph = infer_functional_connectivity_graph(
+    trial_counts,
+    threshold_quantile=0.75,
+    top_k=6,
+)
+
+graph_model = fit_sticky_graph_poisson_hmm(
+    trial_counts,
+    n_states=3,
+    bin_size=0.05,
+    adjacency=graph,
+    graph_strength=0.2,
+    threshold=0.8,
+    max_iter=1000,
+    random_state=3456,
+)
+
+print(graph_model.rates_hz)
+print(graph_model.graph_summary["density"])
+print(graph_model.graph_smoothness)
+
+continuous_graph = infer_observation_graph(continuous_trials, top_k=6)
+continuous_model = fit_sticky_graph_gaussian_hmm(
+    continuous_trials,
+    n_states=3,
+    adjacency=continuous_graph,
+    graph_strength=0.2,
+    threshold=0.8,
+    max_iter=1000,
+)
+
+symbol_trials = [
+    counts_to_multinoulli_symbols(counts, random_state=0)
+    for counts in trial_counts
+]
+symbol_graph = infer_symbol_transition_graph(
+    symbol_trials,
+    n_symbols=trial_counts[0].shape[0] + 1,
+)
+symbol_model = fit_graph_multinoulli_hmm(
+    symbol_trials,
+    n_states=3,
+    n_symbols=trial_counts[0].shape[0] + 1,
+    adjacency=symbol_graph,
+    graph_strength=0.1,
+    max_iter=1000,
+)
+```
+
+If you do not provide `adjacency`, the Poisson and Gaussian graph fitters can infer a correlation graph from the training observations, and the Multinoulli graph fitter can infer a short-lag symbol transition graph. Be careful. That is convenient, but it can leak task structure into the regularizer if you estimate the graph on the same condition you are trying to interpret. For serious analysis, estimate the graph on independent data or report this as an exploratory model.
 
 ## 2. Multiple Spike Trains
 

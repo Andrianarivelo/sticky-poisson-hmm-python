@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sticky-poisson-hmm"
-version = "0.1.2"
-description = "Poisson, sticky Poisson, Multinoulli, and sticky Gaussian HMMs for neural state discovery."
+version = "0.1.3"
+description = "Poisson, Gaussian, Multinoulli, and graph-informed HMMs for neural state discovery."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [

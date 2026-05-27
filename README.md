@@ -2,11 +2,12 @@
 
 Python utilities for discovering latent states in neural population activity with Hidden Markov Models.
 
-The package includes Python counterparts of the original MATLAB demo families:
+The package includes Python counterparts of the original MATLAB demo families plus graph-informed extensions:
 
 - standard Poisson HMM
 - sticky Poisson HMM
 - Poisson HMM with Dirichlet prior over transition rows
+- graph-informed Poisson, Gaussian, and Multinoulli HMMs with complex-network smoothing
 - Multinoulli HMM
 - sticky Gaussian HMM for continuous signals
 
@@ -62,12 +63,71 @@ from hmm_spikes import (
     fit_poisson_hmm,
     fit_sticky_poisson_hmm,
     fit_dirichlet_poisson_hmm,
+    fit_sticky_graph_poisson_hmm,
+    fit_sticky_graph_gaussian_hmm,
+    fit_graph_multinoulli_hmm,
     fit_multinoulli_hmm,
     fit_sticky_gaussian_hmm,
 )
 ```
 
-Use `fit_poisson_hmm` for the standard PHMM, `fit_sticky_poisson_hmm` for the recommended sticky count model, `fit_dirichlet_poisson_hmm` when you want a soft transition prior rather than a hard sticky reset, `fit_multinoulli_hmm` for categorical symbols, and `fit_sticky_gaussian_hmm` for continuous traces such as raw photometry.
+Use `fit_poisson_hmm` for the standard PHMM, `fit_sticky_poisson_hmm` for the recommended sticky count model, `fit_dirichlet_poisson_hmm` when you want a soft transition prior rather than a hard sticky reset, `fit_multinoulli_hmm` for categorical symbols, and `fit_sticky_gaussian_hmm` for continuous traces such as raw photometry. Use the graph-informed variants when a unit, channel, feature, or symbol graph should regularize the emission parameters.
+
+## Graph-Informed HMM Family
+
+The graph-informed family uses a weighted graph over observed units, continuous features, or categorical symbols. During each M-step, the ordinary emission estimate is smoothed with a graph Laplacian. For Poisson this smooths state count-rate maps. For Gaussian this smooths state mean maps, with optional variance smoothing. For Multinoulli this smooths categorical emission probabilities over a symbol graph.
+
+This is useful when the graph represents physical proximity, known connectivity, channel layout, anatomical grouping, symbol similarity, or a functional connectivity estimate.
+
+```python
+from hmm_spikes import (
+    fit_sticky_graph_poisson_hmm,
+    fit_sticky_graph_gaussian_hmm,
+    fit_graph_multinoulli_hmm,
+    infer_functional_connectivity_graph,
+    infer_observation_graph,
+    infer_symbol_transition_graph,
+)
+
+graph = infer_functional_connectivity_graph(
+    trial_counts,
+    threshold_quantile=0.75,
+    top_k=6,
+)
+
+result = fit_sticky_graph_poisson_hmm(
+    trial_counts,
+    n_states=3,
+    bin_size=0.05,
+    adjacency=graph,
+    graph_strength=0.2,
+    threshold=0.8,
+    max_iter=1000,
+    random_state=3456,
+)
+
+gaussian_graph = infer_observation_graph(continuous_trials, top_k=6)
+gaussian_result = fit_sticky_graph_gaussian_hmm(
+    continuous_trials,
+    n_states=3,
+    adjacency=gaussian_graph,
+    graph_strength=0.2,
+    threshold=0.8,
+    max_iter=1000,
+)
+
+symbol_graph = infer_symbol_transition_graph(symbol_trials, n_symbols=n_symbols)
+symbol_result = fit_graph_multinoulli_hmm(
+    symbol_trials,
+    n_states=3,
+    n_symbols=n_symbols,
+    adjacency=symbol_graph,
+    graph_strength=0.1,
+    max_iter=1000,
+)
+```
+
+Brutal honesty: this is a structured regularizer, not proof of causal connectivity. If the inferred graph is garbage, the model will faithfully regularize toward garbage. Use held-out likelihood, BIC, posterior diagnostics, and biological interpretability before trusting it.
 
 ## Reliability Note
 
