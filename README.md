@@ -34,6 +34,24 @@ Then any script in the same Python environment can import:
 from hmm_spikes import fit_sticky_poisson_hmm, fit_sticky_gaussian_hmm
 ```
 
+## HMM Studio Desktop GUI
+
+This repository also includes `hmm_studio`, a PySide6 desktop interface for loading datasets, fitting Poisson, Gaussian, Multinoulli, and graph-informed HMMs, comparing runs, and saving complete projects.
+
+Install the GUI extras:
+
+```powershell
+python -m pip install -e ".[studio]"
+```
+
+Launch from the repository root:
+
+```powershell
+.\Launch_HMM_Studio.bat
+```
+
+HMM Studio project files use the `.hmmstudio` extension and store the dataset, fitted runs, BIC scan result, active run, and UI state so fitted models can be reopened without recomputing EM fits. Treat project files as trusted local files.
+
 ## Minimal Use With A Count Array
 
 ```python

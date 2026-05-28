@@ -12,3 +12,5 @@ figures/
 data/
 *.mat
 *.npz
+*.hmmstudio
+*.hmmsproj
